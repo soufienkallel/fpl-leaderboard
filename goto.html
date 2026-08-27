@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting…</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, sans-serif;
+    background: #0e3b2c;
+    color: #f2ede1;
+  }
+</style>
+</head>
+<body>
+  <p>Opening squad…</p>
+<script>
+  // Grabs the real destination from ?u= and redirects to it.
+  // Doing this as a script-driven redirect (rather than a direct link tap)
+  // helps prevent iOS/Android from intercepting the tap and opening the
+  // official FPL app instead of the web page.
+  const params = new URLSearchParams(window.location.search);
+  const target = params.get('u');
+  if (target) {
+    location.replace(target);
+  } else {
+    document.body.textContent = 'No destination provided.';
+  }
+</script>
+</body>
+</html>

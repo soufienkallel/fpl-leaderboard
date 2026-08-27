@@ -1,0 +1,13 @@
+{
+  "name": "fpl-leaderboard-ts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vercel dev",
+    "build": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@vercel/node": "^3.2.24",
+    "typescript": "^5.5.4"
+  }
+}

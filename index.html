@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>دوري قروب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg1: #eeecf7;
+    --bg2: #e2ddf4;
+    --ink: #241a3d;
+    --purple-deep: #2c1a4d;
+    --purple: #6d3fd6;
+    --cyan: #17c9e0;
+    --card: #ffffff;
+    --muted: #7a7392;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: 'Cairo', sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 12% 8%, rgba(109,63,214,0.10), transparent 40%),
+      radial-gradient(circle at 90% 20%, rgba(23,201,224,0.12), transparent 45%),
+      linear-gradient(160deg, var(--bg1), var(--bg2));
+    padding: 36px 14px 70px;
+  }
+
+  .wrap { max-width: 620px; margin: 0 auto; position: relative; }
+
+  .menu-btn {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border: 2px solid transparent;
+    background-image: linear-gradient(#fff,#fff), linear-gradient(135deg, var(--purple), var(--cyan));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(23,201,224,0.2);
+    z-index: 20;
+  }
+  .menu-btn span, .menu-btn::before, .menu-btn::after {
+    content: '';
+    display: block;
+    width: 18px;
+    height: 2.5px;
+    background: var(--purple-deep);
+    border-radius: 2px;
+    position: absolute;
+  }
+  .menu-btn::before { transform: translateY(-6px); }
+  .menu-btn::after { transform: translateY(6px); }
+
+  .menu-dropdown {
+    position: absolute;
+    top: 46px;
+    left: 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(44,26,77,0.25);
+    border: 1.5px solid rgba(109,63,214,0.15);
+    overflow: hidden;
+    min-width: 170px;
+    z-index: 30;
+    display: none;
+  }
+  .menu-dropdown.open { display: block; }
+  .menu-item {
+    padding: 13px 16px;
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: right;
+    transition: background 0.12s ease;
+  }
+  .menu-item:hover { background: rgba(109,63,214,0.08); }
+  .menu-item.active { color: var(--purple); background: rgba(23,201,224,0.08); }
+  .menu-item + .menu-item { border-top: 1px solid rgba(109,63,214,0.1); }
+
+  header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .title-block { text-align: center; flex: 1; }
+
+  .badge-ball {
+    font-size: 30px;
+    display: block;
+    margin: 0 auto 6px;
+    filter: drop-shadow(0 2px 4px rgba(44,26,77,0.25));
+  }
+
+  h1 {
+    font-family: 'Cairo', sans-serif;
+    font-weight: 900;
+    font-size: clamp(28px, 8vw, 42px);
+    margin: 0;
+    color: var(--purple-deep);
+    text-shadow: 0 0 14px rgba(23,201,224,0.35), 0 0 2px rgba(109,63,214,0.3);
+    letter-spacing: -0.01em;
+  }
+
+  .gw-pill {
+    background: #fff;
+    border: 2px solid transparent;
+    background-image: linear-gradient(#fff,#fff), linear-gradient(135deg, var(--purple), var(--cyan));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    border-radius: 12px;
+    padding: 8px 16px;
+    text-align: center;
+    min-width: 76px;
+    box-shadow: 0 0 10px rgba(23,201,224,0.25);
+  }
+  .gw-pill .num {
+    display: block;
+    font-weight: 900;
+    font-size: 18px;
+    color: var(--purple-deep);
+  }
+  .gw-pill .lbl {
+    display: block;
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-top: 2px;
+  }
+
+  .status-line {
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+    font-weight: 700;
+    margin: -14px 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 0 0 rgba(23,201,224,0.6);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(23,201,224,0.55); }
+    70% { box-shadow: 0 0 0 7px rgba(23,201,224,0); }
+    100% { box-shadow: 0 0 0 0 rgba(23,201,224,0); }
+  }
+
+  .col-header {
+    display: grid;
+    grid-template-columns: 56px 1fr 78px 78px;
+    align-items: center;
+    background: linear-gradient(120deg, var(--purple-deep), #3a2266);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    box-shadow: 0 4px 14px rgba(44,26,77,0.25);
+  }
+  .col-header span {
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    text-align: center;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: 56px 1fr 78px 78px;
+    align-items: center;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 9px 10px;
+    margin-bottom: 9px;
+    border: 1.5px solid rgba(109,63,214,0.18);
+    box-shadow: 0 0 0 1px rgba(23,201,224,0.06), 0 4px 12px rgba(44,26,77,0.06);
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+  }
+  .row:hover {
+    box-shadow: 0 0 14px rgba(23,201,224,0.25), 0 4px 12px rgba(44,26,77,0.08);
+  }
+
+  .rank-badge {
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 15px;
+    color: #fff;
+    margin: 0 auto;
+  }
+  .rank-badge.top { background: linear-gradient(135deg, var(--cyan), #4fe0f0); box-shadow: 0 0 10px rgba(23,201,224,0.55); }
+  .rank-badge.rest { background: linear-gradient(135deg, var(--purple-deep), #4a2d80); box-shadow: 0 0 8px rgba(109,63,214,0.35); }
+
+  .team-cell { text-align: center; padding: 0 6px; overflow: hidden; }
+  .team-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.12s ease;
+  }
+  .team-link:hover { background: rgba(109,63,214,0.08); }
+  .team-link:hover .team-name { color: var(--purple); }
+  .team-link:active { background: rgba(23,201,224,0.12); }
+  .team-name {
+    font-weight: 800; font-size: 14px; color: var(--ink);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .manager-name {
+    font-size: 10.5px; color: var(--muted); font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+
+  .stat { text-align: center; font-weight: 800; font-size: 14px; color: var(--purple-deep); }
+  .stat.gw { color: var(--muted); font-weight: 700; font-size: 13px; }
+
+  .highlight-box {
+    margin-top: 22px;
+    background: linear-gradient(135deg, var(--purple-deep), #3a2266);
+    border-radius: 14px;
+    padding: 16px 18px;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(44,26,77,0.3);
+  }
+  .highlight-box .lbl {
+    color: #cfc3ee;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .highlight-box .val {
+    color: #fff;
+    font-size: 20px;
+    font-weight: 900;
+    text-shadow: 0 0 12px rgba(23,201,224,0.5);
+  }
+  .highlight-box .sub {
+    color: #cfc3ee;
+    font-size: 11px;
+    margin-top: 4px;
+    font-weight: 600;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 24px;
+    font-size: 10.5px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .msg {
+    text-align: center;
+    padding: 44px 16px;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .recap-hero {
+    background: linear-gradient(145deg, var(--purple-deep), #3a2266);
+    border-radius: 16px;
+    padding: 20px 18px;
+    margin-bottom: 14px;
+    box-shadow: 0 8px 24px rgba(44,26,77,0.3);
+    text-align: center;
+  }
+  .recap-hero .rlbl {
+    color: #cfc3ee;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .recap-hero .rtitle {
+    color: #fff;
+    font-size: 22px;
+    font-weight: 900;
+    margin: 4px 0 10px;
+  }
+  .recap-hero .rtag {
+    display: inline-block;
+    background: rgba(23,201,224,0.18);
+    border: 1px solid rgba(23,201,224,0.5);
+    color: #b6f3fa;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 14px;
+    border-radius: 999px;
+  }
+
+  .recap-top3 { margin-bottom: 14px; }
+  .recap-row {
+    display: grid;
+    grid-template-columns: 34px 1fr 60px;
+    align-items: center;
+    background: var(--card);
+    border-radius: 12px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    border: 1.5px solid rgba(109,63,214,0.18);
+  }
+  .recap-row .rn {
+    width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 13px; color: #fff;
+    background: linear-gradient(135deg, var(--cyan), #4fe0f0);
+    margin: 0 auto;
+  }
+  .recap-row .rteam { text-align: center; font-weight: 800; font-size: 14px; }
+  .recap-row .rpts { text-align: center; font-weight: 900; font-size: 15px; color: var(--purple-deep); }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 6px;
+    text-align: center;
+    border: 1.5px solid rgba(109,63,214,0.18);
+  }
+  .stat-card .sval { font-size: 18px; font-weight: 900; color: var(--purple-deep); }
+  .stat-card .slbl { font-size: 10px; color: var(--muted); font-weight: 700; margin-top: 3px; }
+
+  .section-title {
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--purple-deep);
+    margin: 18px 0 8px;
+    text-align: center;
+  }
+
+  .cap-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    border: 1.5px solid rgba(109,63,214,0.18);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .cap-card .cinfo { text-align: right; }
+  .cap-card .cwho { font-weight: 800; font-size: 13.5px; }
+  .cap-card .cwhat { font-size: 11px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .cap-card .cval {
+    font-weight: 900; font-size: 17px; color: var(--cyan);
+    text-shadow: 0 0 10px rgba(23,201,224,0.3);
+    white-space: nowrap;
+  }
+
+  .derby-box {
+    background: linear-gradient(135deg, var(--purple-deep), #3a2266);
+    border-radius: 14px;
+    padding: 16px 14px;
+    margin-top: 16px;
+    text-align: center;
+  }
+  .derby-box .dlbl { color: #cfc3ee; font-size: 12px; font-weight: 700; margin-bottom: 10px; }
+  .derby-row { display: flex; align-items: center; justify-content: center; gap: 12px; }
+  .derby-team { color: #fff; font-weight: 800; font-size: 13px; flex: 1; text-align: center; }
+  .derby-score { color: #fff; font-weight: 900; font-size: 18px; }
+  .derby-vs {
+    background: var(--cyan);
+    color: var(--purple-deep);
+    font-weight: 900;
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 999px;
+  }
+  .derby-diff { color: #b6f3fa; font-size: 11px; font-weight: 700; margin-top: 8px; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="menu-btn" id="menu-btn"></div>
+    <div class="menu-dropdown" id="menu-dropdown">
+      <div class="menu-item active" data-view="table">جدول الدوري</div>
+      <div class="menu-item" data-view="recap">ملخص الجولة</div>
+    </div>
+
+    <header>
+      <div class="gw-pill">
+        <span class="num" id="gw-num">–</span>
+        <span class="lbl">الجولة</span>
+      </div>
+      <div class="title-block">
+        <span class="badge-ball">⚽</span>
+        <h1 id="league-name">جاري التحميل…</h1>
+      </div>
+      <div style="width:76px"></div>
+    </header>
+
+    <div class="status-line"><span class="dot"></span><span id="updated-text">جاري التحقق…</span></div>
+
+    <div id="view-table">
+      <div id="board-wrap" style="display:none">
+        <div class="col-header">
+          <span>الترتيب</span>
+          <span>الفريق</span>
+          <span>الجولة</span>
+          <span>المجموع</span>
+        </div>
+        <div id="rows"></div>
+
+        <div class="highlight-box">
+          <div class="lbl">أعلى نقاط بالجولة</div>
+          <div class="val" id="top-gw-name">–</div>
+          <div class="sub" id="top-gw-points">–</div>
+        </div>
+      </div>
+      <div class="msg" id="loading-msg">جاري تحميل الترتيب…</div>
+    </div>
+
+    <div id="view-recap" style="display:none">
+      <div id="recap-content"></div>
+      <div class="msg" id="recap-msg" style="display:none">لا يوجد ملخص متاح لهذه الجولة بعد.</div>
+    </div>
+
+    <footer>يتحدث تلقائياً · المصدر: fantasy.premierleague.com</footer>
+  </div>
+
+<script>
+  const REFRESH_MS = 60 * 1000;
+  let latestData = null;
+
+  function timeAgo(iso) {
+    const then = new Date(iso).getTime();
+    const diffMin = Math.floor((Date.now() - then) / 60000);
+    if (diffMin < 1) return 'آخر تحديث: الآن';
+    if (diffMin === 1) return 'آخر تحديث: منذ دقيقة';
+    if (diffMin < 60) return `آخر تحديث: منذ ${diffMin} دقيقة`;
+    const hrs = Math.floor(diffMin / 60);
+    return `آخر تحديث: منذ ${hrs} س ${diffMin % 60} د`;
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str ?? '';
+    return div.innerHTML;
+  }
+
+  const menuBtn = document.getElementById('menu-btn');
+  const menuDropdown = document.getElementById('menu-dropdown');
+  const viewTable = document.getElementById('view-table');
+  const viewRecap = document.getElementById('view-recap');
+
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menuDropdown.classList.toggle('open');
+  });
+  document.addEventListener('click', () => menuDropdown.classList.remove('open'));
+
+  document.querySelectorAll('.menu-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+      const view = item.dataset.view;
+      viewTable.style.display = view === 'table' ? 'block' : 'none';
+      viewRecap.style.display = view === 'recap' ? 'block' : 'none';
+      menuDropdown.classList.remove('open');
+      if (view === 'recap' && latestData) renderRecap(latestData);
+    });
+  });
+
+  function renderTable(data) {
+    if (!data.players || data.players.length === 0) {
+      document.getElementById('loading-msg').textContent =
+        'لا توجد بيانات بعد — حاول تحديث الصفحة بعد قليل.';
+      return;
+    }
+
+    const rows = data.players.map(p => {
+      const gw = data.current_gw || 1;
+      const fplUrl = p.team_id
+        ? `goto.html?u=${encodeURIComponent(`https://fantasy.premierleague.com/entry/${p.team_id}/event/${gw}`)}`
+        : null;
+      const teamBlock = `
+          <div class="team-name">${escapeHtml(p.team_name)}</div>
+          <div class="manager-name">${escapeHtml(p.manager_name)}</div>
+      `;
+      return `
+      <div class="row">
+        <div><span class="rank-badge ${p.rank <= 3 ? 'top' : 'rest'}">${p.rank}</span></div>
+        <div class="team-cell">
+          ${fplUrl
+            ? `<a class="team-link" href="${fplUrl}" target="_blank" rel="noopener noreferrer">${teamBlock}</a>`
+            : teamBlock}
+        </div>
+        <div class="stat gw">${p.gw_points ?? '–'}</div>
+        <div class="stat">${p.total_points ?? '–'}</div>
+      </div>
+    `;
+    }).join('');
+
+    document.getElementById('rows').innerHTML = rows;
+    document.getElementById('board-wrap').style.display = 'block';
+    document.getElementById('loading-msg').style.display = 'none';
+
+    const topGw = [...data.players].sort((a, b) => (b.gw_points ?? -1) - (a.gw_points ?? -1))[0];
+    if (topGw) {
+      document.getElementById('top-gw-name').textContent = topGw.team_name;
+      document.getElementById('top-gw-points').textContent = `${topGw.gw_points} نقطة هذه الجولة`;
+    }
+  }
+
+  function renderRecap(data) {
+    const s = data.gw_summary;
+    const container = document.getElementById('recap-content');
+    const msg = document.getElementById('recap-msg');
+
+    if (!s) {
+      container.innerHTML = '';
+      msg.style.display = 'block';
+      return;
+    }
+    msg.style.display = 'none';
+
+    const medalNames = ['🥇', '🥈', '🥉'];
+    const top3Html = (s.top_scorers || []).map((p, i) => `
+      <div class="recap-row">
+        <div class="rn">${medalNames[i] || (i + 1)}</div>
+        <div class="rteam">${escapeHtml(p.team_name)}</div>
+        <div class="rpts">${p.points}</div>
+      </div>
+    `).join('');
+
+    const statGridHtml = `
+      <div class="stat-grid">
+        <div class="stat-card"><div class="sval">${s.average_score ?? '–'}</div><div class="slbl">متوسط الجولة</div></div>
+        <div class="stat-card"><div class="sval">${s.highest_score ?? '–'}</div><div class="slbl">أعلى رصيد</div></div>
+        <div class="stat-card"><div class="sval">${s.lowest_score ?? '–'}</div><div class="slbl">أقل رصيد</div></div>
+      </div>
+    `;
+
+    let captainsHtml = '';
+    if (s.bench_king || s.worst_captain || s.best_differential_captain) {
+      captainsHtml += `<div class="section-title">🎖️ أفضل اختيار كابتن</div>`;
+      if (s.bench_king) {
+        captainsHtml += `
+          <div class="cap-card">
+            <div class="cval">${s.bench_king.bench_points}</div>
+            <div class="cinfo">
+              <div class="cwho">${escapeHtml(s.bench_king.team_name)}</div>
+              <div class="cwhat">👑 ملك الدكة — أكثر نقاط بقيت على الدكة</div>
+            </div>
+          </div>
+        `;
+      }
+      if (s.worst_captain) {
+        captainsHtml += `
+          <div class="cap-card">
+            <div class="cval">${s.worst_captain.captain_points}</div>
+            <div class="cinfo">
+              <div class="cwho">${escapeHtml(s.worst_captain.team_name)}</div>
+              <div class="cwhat">📉 الكبتنة الضائعة — كابتن ${escapeHtml(s.worst_captain.captain_name)}</div>
+            </div>
+          </div>
+        `;
+      }
+      if (s.best_differential_captain) {
+        captainsHtml += `
+          <div class="cap-card">
+            <div class="cval">${s.best_differential_captain.captain_points}</div>
+            <div class="cinfo">
+              <div class="cwho">${escapeHtml(s.best_differential_captain.team_name)}</div>
+              <div class="cwhat">🐺 الذئب المنفرد — كابتن ${escapeHtml(s.best_differential_captain.captain_name)} وحده</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    let derbyHtml = '';
+    if (s.derby) {
+      derbyHtml = `
+        <div class="derby-box">
+          <div class="dlbl">⚔️ ديربي الجولة — أقرب ثنائي بالترتيب</div>
+          <div class="derby-row">
+            <div class="derby-team">${escapeHtml(s.derby.team_a)}<br><span class="derby-score">${s.derby.score_a}</span></div>
+            <div class="derby-vs">VS</div>
+            <div class="derby-team">${escapeHtml(s.derby.team_b)}<br><span class="derby-score">${s.derby.score_b}</span></div>
+          </div>
+          <div class="derby-diff">فرق ${s.derby.diff} نقطة فقط بينهم</div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = `
+      <div class="recap-hero">
+        <div class="rlbl">ملخص الجولة</div>
+        <div class="rtitle">الجولة ${s.gw}</div>
+        <div class="rtag">🔥 ${escapeHtml(s.top_scorers?.[0]?.team_name || '')} — ${s.highest_score} نقطة</div>
+      </div>
+      <div class="recap-top3">${top3Html}</div>
+      ${statGridHtml}
+      ${captainsHtml}
+      ${derbyHtml}
+    `;
+  }
+
+  async function loadData() {
+    try {
+      const res = await fetch('/api/data?_=' + Date.now());
+      if (!res.ok) throw new Error('no data yet');
+      const data = await res.json();
+      latestData = data;
+
+      document.getElementById('league-name').textContent = data.league_name || 'دوري الفانتازي';
+      document.getElementById('updated-text').textContent = timeAgo(data.last_updated);
+      document.getElementById('gw-num').textContent = data.current_gw ?? '—';
+
+      renderTable(data);
+
+      if (viewRecap.style.display !== 'none') {
+        renderRecap(data);
+      }
+    } catch (e) {
+      document.getElementById('loading-msg').textContent =
+        'تعذر تحميل البيانات — حاول تحديث الصفحة بعد قليل.';
+    }
+  }
+
+  loadData();
+  setInterval(loadData, REFRESH_MS);
+</script>
+</body>
+</html>
