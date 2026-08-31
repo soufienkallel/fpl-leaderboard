@@ -15,13 +15,31 @@ const picksUrl = (entryId: number, gw: number) =>
 const transfersUrl = (entryId: number) => `https://fantasy.premierleague.com/api/entry/${entryId}/transfers/`;
 
 const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; FPL-Leaderboard-Bot/1.0)",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://fantasy.premierleague.com/",
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(20_000) });
   if (!res.ok) throw new Error(`Request failed (${res.status}): ${url}`);
   return (await res.json()) as T;
+}
+
+/** Runs async tasks over `items` with at most `limit` in flight at once. */
+async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return results;
 }
 
 interface BootstrapEvent {
@@ -220,19 +238,18 @@ async function buildGwSummary(
       }
     : null;
 
-  // Captain analysis: one API call per manager for this gameweek (run in parallel).
-  const picksResults = await Promise.all(
-    scored.map(async (p) => {
-      if (!p.team_id) return null;
-      try {
-        const picksData = await fetchJson<PicksRaw>(picksUrl(p.team_id, gw));
-        return { player: p, picks: picksData.picks ?? [] };
-      } catch (e) {
-        console.error(`Could not fetch picks for entry ${p.team_id}:`, e);
-        return null;
-      }
-    })
-  );
+  // Captain analysis: one API call per manager for this gameweek, capped concurrency
+  // so we don't burst dozens of simultaneous requests at FPL's API from one IP.
+  const picksResults = await mapLimit(scored, 6, async (p) => {
+    if (!p.team_id) return null;
+    try {
+      const picksData = await fetchJson<PicksRaw>(picksUrl(p.team_id, gw));
+      return { player: p, picks: picksData.picks ?? [] };
+    } catch (e) {
+      console.error(`Could not fetch picks for entry ${p.team_id}:`, e);
+      return null;
+    }
+  });
 
   const captainCounts = new Map<number, number>();
   const managerCaptainInfo: CaptainInfo[] = [];
@@ -294,18 +311,16 @@ async function buildGwSummary(
       };
     });
 
-  const transfersResults = await Promise.all(
-    scored.map(async (p) => {
-      if (!p.team_id) return null;
-      try {
-        const allTransfers = await fetchJson<TransferRaw[]>(transfersUrl(p.team_id));
-        return { player: p, allTransfers };
-      } catch (e) {
-        console.error(`Could not fetch transfers for entry ${p.team_id}:`, e);
-        return null;
-      }
-    })
-  );
+  const transfersResults = await mapLimit(scored, 6, async (p) => {
+    if (!p.team_id) return null;
+    try {
+      const allTransfers = await fetchJson<TransferRaw[]>(transfersUrl(p.team_id));
+      return { player: p, allTransfers };
+    } catch (e) {
+      console.error(`Could not fetch transfers for entry ${p.team_id}:`, e);
+      return null;
+    }
+  });
 
   const transfers: ManagerTransfers[] = [];
   const upcomingTransfers: ManagerTransfers[] = [];

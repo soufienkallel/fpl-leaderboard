@@ -9,7 +9,11 @@ const entryUrl = (id: number) => `https://fantasy.premierleague.com/api/entry/${
 const historyUrl = (id: number) => `https://fantasy.premierleague.com/api/entry/${id}/history/`;
 
 const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; FPL-Leaderboard-Bot/1.0)",
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Referer: "https://fantasy.premierleague.com/",
 };
 
 async function fetchJson<T>(url: string): Promise<T> {
