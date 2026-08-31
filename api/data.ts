@@ -142,6 +142,17 @@ interface ManagerTransfers {
   moves: TransferMove[];
 }
 
+interface CopycatMatch {
+  team_a: string | null;
+  manager_a: string | null;
+  team_b: string | null;
+  manager_b: string | null;
+  shared_count: number;
+  shared_players: string[];
+  same_transfer: boolean;
+  matching_move: { player_in: string; player_out: string } | null;
+}
+
 interface GwSummary {
   gw: number;
   top_scorers: TopScorer[];
@@ -155,6 +166,7 @@ interface GwSummary {
   transfers: ManagerTransfers[];
   next_gw: number | null;
   upcoming_transfers: ManagerTransfers[];
+  copycats: CopycatMatch[];
 }
 
 function fetchCurrentGw(bootstrap: Bootstrap): number | null {
@@ -254,6 +266,7 @@ async function buildGwSummary(
   const captainCounts = new Map<number, number>();
   const managerCaptainInfo: CaptainInfo[] = [];
   const benchTotals: BenchTotal[] = [];
+  const squadsByTeam = new Map<number, { team_name: string | null; manager_name: string | null; squad: Set<number> }>();
 
   for (const result of picksResults) {
     if (!result) continue;
@@ -276,6 +289,14 @@ async function buildGwSummary(
     const benchPicks = picks.filter((pk) => (pk.position ?? 0) > 11);
     const benchPts = benchPicks.reduce((sum, pk) => sum + (livePoints.get(pk.element) ?? 0), 0);
     benchTotals.push({ team_name: p.team_name, manager_name: p.manager_name, bench_points: benchPts });
+
+    if (p.team_id) {
+      squadsByTeam.set(p.team_id, {
+        team_name: p.team_name,
+        manager_name: p.manager_name,
+        squad: new Set(picks.map((pk) => pk.element)),
+      });
+    }
   }
 
   const benchKing =
@@ -324,6 +345,7 @@ async function buildGwSummary(
 
   const transfers: ManagerTransfers[] = [];
   const upcomingTransfers: ManagerTransfers[] = [];
+  const transfersByTeamThisGw = new Map<number, TransferRaw[]>();
   for (const result of transfersResults) {
     if (!result) continue;
     const { player: p, allTransfers } = result;
@@ -331,6 +353,9 @@ async function buildGwSummary(
     const thisGw = allTransfers.filter((t) => t.event === gw);
     if (thisGw.length > 0) {
       transfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw, true) });
+    }
+    if (p.team_id) {
+      transfersByTeamThisGw.set(p.team_id, thisGw);
     }
 
     if (nextGw) {
@@ -340,6 +365,52 @@ async function buildGwSummary(
       }
     }
   }
+
+  // Copycat detector: flag any pair of managers whose squads are near-identical,
+  // or who made the exact same in/out transfer this gameweek. Symmetric across
+  // the whole league — nobody is singled out.
+  const SQUAD_OVERLAP_THRESHOLD = 13; // out of 15 — high bar so template-team overlap doesn't trigger it
+  const copycats: CopycatMatch[] = [];
+  const teams = [...squadsByTeam.entries()];
+  for (let i = 0; i < teams.length; i++) {
+    for (let j = i + 1; j < teams.length; j++) {
+      const [teamIdA, a] = teams[i];
+      const [teamIdB, b] = teams[j];
+
+      const sharedIds = [...a.squad].filter((id) => b.squad.has(id));
+      const sharedCount = sharedIds.length;
+
+      const aTransfers = transfersByTeamThisGw.get(teamIdA) ?? [];
+      const bTransfers = transfersByTeamThisGw.get(teamIdB) ?? [];
+      let matchingMove: TransferRaw | null = null;
+      for (const ta of aTransfers) {
+        const hit = bTransfers.find((tb) => ta.element_in === tb.element_in && ta.element_out === tb.element_out);
+        if (hit) {
+          matchingMove = ta;
+          break;
+        }
+      }
+
+      if (sharedCount >= SQUAD_OVERLAP_THRESHOLD || matchingMove) {
+        copycats.push({
+          team_a: a.team_name,
+          manager_a: a.manager_name,
+          team_b: b.team_name,
+          manager_b: b.manager_name,
+          shared_count: sharedCount,
+          shared_players: sharedIds.map((id) => playerNames.get(id) ?? "Unknown").sort(),
+          same_transfer: matchingMove !== null,
+          matching_move: matchingMove
+            ? {
+                player_in: playerNames.get(matchingMove.element_in) ?? "Unknown",
+                player_out: playerNames.get(matchingMove.element_out) ?? "Unknown",
+              }
+            : null,
+        });
+      }
+    }
+  }
+  copycats.sort((x, y) => y.shared_count - x.shared_count);
 
   return {
     gw,
@@ -354,6 +425,7 @@ async function buildGwSummary(
     transfers,
     next_gw: nextGw,
     upcoming_transfers: upcomingTransfers,
+    copycats,
   };
 }
 

@@ -546,6 +546,28 @@
     padding: 7px 4px; border-bottom: 1px solid var(--card-border);
   }
 
+  .copycat-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    border: 1.5px solid var(--card-border);
+  }
+  .copycat-card .ctitle { font-weight: 800; font-size: 14px; margin-bottom: 8px; }
+  .copycat-card .cvs { color: var(--muted); font-weight: 600; font-size: 12px; }
+  .cbadge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 11px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+    margin-right: 6px;
+  }
+  .cbadge.same { background: rgba(236,72,153,0.14); color: var(--pink); border: 1px solid rgba(236,72,153,0.35); }
+  .cbadge.squad { background: rgba(124,58,237,0.16); color: #c4a6ff; border: 1px solid rgba(124,58,237,0.4); }
+  .cbadge.squad.mild { background: rgba(139,144,163,0.12); color: var(--muted); border: 1px solid rgba(139,144,163,0.3); }
+
   .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .chip-pill {
     background: rgba(59,130,246,0.14);
@@ -567,6 +589,7 @@
       <div class="menu-item active" data-view="table">Table</div>
       <div class="menu-item" data-view="recap">Gameweek Recap</div>
       <div class="menu-item" data-view="transfers">Transfers</div>
+      <div class="menu-item" data-view="copycats">Copycat Watch</div>
     </div>
 
     <header>
@@ -612,6 +635,11 @@
       <div class="msg" id="transfers-msg" style="display:none">No transfers made yet.</div>
     </div>
 
+    <div id="view-copycats" style="display:none">
+      <div id="copycats-content"></div>
+      <div class="msg" id="copycats-msg" style="display:none">No suspiciously similar squads this gameweek. Everyone's an original 👍</div>
+    </div>
+
     <footer>Auto-refreshing · Source: fantasy.premierleague.com</footer>
   </div>
 
@@ -647,6 +675,7 @@
   const viewTable = document.getElementById('view-table');
   const viewRecap = document.getElementById('view-recap');
   const viewTransfers = document.getElementById('view-transfers');
+  const viewCopycats = document.getElementById('view-copycats');
   let activeView = 'table';
 
   menuBtn.addEventListener('click', (e) => {
@@ -663,9 +692,11 @@
       viewTable.style.display = activeView === 'table' ? 'block' : 'none';
       viewRecap.style.display = activeView === 'recap' ? 'block' : 'none';
       viewTransfers.style.display = activeView === 'transfers' ? 'block' : 'none';
+      viewCopycats.style.display = activeView === 'copycats' ? 'block' : 'none';
       menuDropdown.classList.remove('open');
       if (activeView === 'recap' && latestData) renderRecap(latestData);
       if (activeView === 'transfers' && latestData) renderTransfers(latestData);
+      if (activeView === 'copycats' && latestData) renderCopycats(latestData);
     });
   });
 
@@ -973,6 +1004,37 @@
     container.innerHTML = html;
   }
 
+  function renderCopycats(data) {
+    const s = data.gw_summary;
+    const container = document.getElementById('copycats-content');
+    const msg = document.getElementById('copycats-msg');
+    const matches = (s && s.copycats) || [];
+
+    if (matches.length === 0) {
+      container.innerHTML = '';
+      msg.style.display = 'block';
+      return;
+    }
+    msg.style.display = 'none';
+
+    container.innerHTML = `<div class="section-title">🕵️ Copycat Watch</div>` + matches.map(m => `
+      <div class="copycat-card">
+        <div class="ctitle">${escapeHtml(m.team_a)} <span class="cvs">🆚</span> ${escapeHtml(m.team_b)}</div>
+        ${m.same_transfer && m.matching_move ? `
+          <div class="cbadge same">🔁 Both moved ${escapeHtml(m.matching_move.player_out)} ➜ ${escapeHtml(m.matching_move.player_in)} this gameweek</div>
+        ` : ''}
+        ${m.shared_count >= 13
+          ? `<div class="cbadge squad">👯 ${m.shared_count}/15 — nearly identical squad</div>`
+          : m.shared_count > 0
+            ? `<div class="cbadge squad mild">${m.shared_count}/15 shared players</div>`
+            : ''}
+        ${m.shared_players.length > 0 ? `
+          <div class="chip-list">${m.shared_players.map(p => `<span class="chip-pill">${escapeHtml(p)}</span>`).join('')}</div>
+        ` : ''}
+      </div>
+    `).join('');
+  }
+
   async function loadData() {
     try {
       const res = await fetch('/api/data?_=' + Date.now());
@@ -988,6 +1050,7 @@
 
       if (activeView === 'recap') renderRecap(data);
       if (activeView === 'transfers') renderTransfers(data);
+      if (activeView === 'copycats') renderCopycats(data);
     } catch (e) {
       document.getElementById('loading-msg').textContent =
         'Could not load data — try refreshing in a moment.';
