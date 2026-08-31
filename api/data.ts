@@ -131,12 +131,21 @@ interface GwSummary {
   worst_captain: CaptainInfo | null;
   best_differential_captain: CaptainInfo | null;
   transfers: ManagerTransfers[];
+  next_gw: number | null;
+  upcoming_transfers: ManagerTransfers[];
 }
 
 function fetchCurrentGw(bootstrap: Bootstrap): number | null {
   for (const event of bootstrap.events ?? []) {
     if (event.is_current) return event.id;
     if (event.is_next) return (event.id ?? 1) - 1;
+  }
+  return null;
+}
+
+function fetchNextGw(bootstrap: Bootstrap): number | null {
+  for (const event of bootstrap.events ?? []) {
+    if (event.is_next) return event.id;
   }
   return null;
 }
@@ -166,6 +175,7 @@ async function buildLivePointsMap(gw: number | null): Promise<Map<number, number
 async function buildGwSummary(
   players: Player[],
   gw: number | null,
+  nextGw: number | null,
   playerNames: Map<number, string>,
   livePoints: Map<number, number>
 ): Promise<GwSummary | null> {
@@ -262,29 +272,45 @@ async function buildGwSummary(
     }
   }
 
-  // Transfers made this gameweek: one API call per manager (run in parallel).
+  // Transfers made this gameweek, and any already banked for the next deadline:
+  // one API call per manager (run in parallel), split by event afterwards.
+  const toMoves = (rows: TransferRaw[]): TransferMove[] =>
+    rows.map((t) => ({
+      player_in: playerNames.get(t.element_in) ?? "Unknown",
+      player_out: playerNames.get(t.element_out) ?? "Unknown",
+    }));
+
   const transfersResults = await Promise.all(
     scored.map(async (p) => {
       if (!p.team_id) return null;
       try {
         const allTransfers = await fetchJson<TransferRaw[]>(transfersUrl(p.team_id));
-        const thisGw = allTransfers.filter((t) => t.event === gw);
-        if (thisGw.length === 0) return null;
-        return {
-          team_name: p.team_name,
-          manager_name: p.manager_name,
-          moves: thisGw.map((t) => ({
-            player_in: playerNames.get(t.element_in) ?? "Unknown",
-            player_out: playerNames.get(t.element_out) ?? "Unknown",
-          })),
-        };
+        return { player: p, allTransfers };
       } catch (e) {
         console.error(`Could not fetch transfers for entry ${p.team_id}:`, e);
         return null;
       }
     })
   );
-  const transfers: ManagerTransfers[] = transfersResults.filter((t): t is ManagerTransfers => t !== null);
+
+  const transfers: ManagerTransfers[] = [];
+  const upcomingTransfers: ManagerTransfers[] = [];
+  for (const result of transfersResults) {
+    if (!result) continue;
+    const { player: p, allTransfers } = result;
+
+    const thisGw = allTransfers.filter((t) => t.event === gw);
+    if (thisGw.length > 0) {
+      transfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw) });
+    }
+
+    if (nextGw) {
+      const forNextGw = allTransfers.filter((t) => t.event === nextGw);
+      if (forNextGw.length > 0) {
+        upcomingTransfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(forNextGw) });
+      }
+    }
+  }
 
   return {
     gw,
@@ -297,6 +323,8 @@ async function buildGwSummary(
     worst_captain: worstCaptain,
     best_differential_captain: bestDifferential,
     transfers,
+    next_gw: nextGw,
+    upcoming_transfers: upcomingTransfers,
   };
 }
 
@@ -307,6 +335,7 @@ async function fetchStandings() {
   ]);
 
   const currentGw = fetchCurrentGw(bootstrap);
+  const nextGw = fetchNextGw(bootstrap);
   const playerNames = buildPlayerNameMap(bootstrap);
   const livePoints = await buildLivePointsMap(currentGw);
 
@@ -325,7 +354,7 @@ async function fetchStandings() {
 
   players.sort((a, b) => (b.total_points ?? 0) - (a.total_points ?? 0));
 
-  const gwSummary = await buildGwSummary(players, currentGw, playerNames, livePoints);
+  const gwSummary = await buildGwSummary(players, currentGw, nextGw, playerNames, livePoints);
 
   return {
     league_id: LEAGUE_ID,

@@ -365,6 +365,7 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
+  .section-title.upcoming { color: var(--blue); }
 
   .cap-card {
     background: var(--card);
@@ -889,6 +890,25 @@
       `).join('');
     }
 
+    let upcomingTransfersHtml = '';
+    if ((s.upcoming_transfers || []).length > 0) {
+      upcomingTransfersHtml += `<div class="section-title upcoming">🔜 Transfers Ahead of GW${s.next_gw}</div>`;
+      upcomingTransfersHtml += s.upcoming_transfers.map(t => `
+        <div class="transfer-card">
+          <div class="twho">${escapeHtml(t.team_name)}</div>
+          <div class="tmoves">
+            ${t.moves.map(m => `
+              <div class="tmove">
+                <span class="tout">${escapeHtml(m.player_out)}</span>
+                <span class="tarrow">→</span>
+                <span class="tin">${escapeHtml(m.player_in)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
     container.innerHTML = `
       <div class="recap-hero">
         <div class="rlbl">Gameweek Recap</div>
@@ -899,6 +919,7 @@
       ${statGridHtml}
       ${captainsHtml}
       ${transfersHtml}
+      ${upcomingTransfersHtml}
       ${derbyHtml}
     `;
   }
