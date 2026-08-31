@@ -12,6 +12,7 @@ const BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/";
 const liveUrl = (gw: number) => `https://fantasy.premierleague.com/api/event/${gw}/live/`;
 const picksUrl = (entryId: number, gw: number) =>
   `https://fantasy.premierleague.com/api/entry/${entryId}/event/${gw}/picks/`;
+const transfersUrl = (entryId: number) => `https://fantasy.premierleague.com/api/entry/${entryId}/transfers/`;
 
 const HEADERS = {
   "User-Agent": "Mozilla/5.0 (compatible; FPL-Leaderboard-Bot/1.0)",
@@ -64,6 +65,11 @@ interface Pick {
 interface PicksRaw {
   picks: Pick[];
 }
+interface TransferRaw {
+  element_in: number;
+  element_out: number;
+  event: number;
+}
 
 interface Player {
   rank: number | null;
@@ -103,6 +109,17 @@ interface BenchTotal {
   bench_points: number;
 }
 
+interface TransferMove {
+  player_in: string;
+  player_out: string;
+}
+
+interface ManagerTransfers {
+  team_name: string | null;
+  manager_name: string | null;
+  moves: TransferMove[];
+}
+
 interface GwSummary {
   gw: number;
   top_scorers: TopScorer[];
@@ -113,6 +130,7 @@ interface GwSummary {
   bench_king: BenchTotal | null;
   worst_captain: CaptainInfo | null;
   best_differential_captain: CaptainInfo | null;
+  transfers: ManagerTransfers[];
 }
 
 function fetchCurrentGw(bootstrap: Bootstrap): number | null {
@@ -244,6 +262,30 @@ async function buildGwSummary(
     }
   }
 
+  // Transfers made this gameweek: one API call per manager (run in parallel).
+  const transfersResults = await Promise.all(
+    scored.map(async (p) => {
+      if (!p.team_id) return null;
+      try {
+        const allTransfers = await fetchJson<TransferRaw[]>(transfersUrl(p.team_id));
+        const thisGw = allTransfers.filter((t) => t.event === gw);
+        if (thisGw.length === 0) return null;
+        return {
+          team_name: p.team_name,
+          manager_name: p.manager_name,
+          moves: thisGw.map((t) => ({
+            player_in: playerNames.get(t.element_in) ?? "Unknown",
+            player_out: playerNames.get(t.element_out) ?? "Unknown",
+          })),
+        };
+      } catch (e) {
+        console.error(`Could not fetch transfers for entry ${p.team_id}:`, e);
+        return null;
+      }
+    })
+  );
+  const transfers: ManagerTransfers[] = transfersResults.filter((t): t is ManagerTransfers => t !== null);
+
   return {
     gw,
     top_scorers: topScorers,
@@ -254,6 +296,7 @@ async function buildGwSummary(
     bench_king: benchKing,
     worst_captain: worstCaptain,
     best_differential_captain: bestDifferential,
+    transfers,
   };
 }
 

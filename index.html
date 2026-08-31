@@ -385,6 +385,20 @@
     white-space: nowrap;
   }
 
+  .transfer-card {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 8px;
+    border: 1.5px solid var(--card-border);
+  }
+  .transfer-card .twho { font-weight: 800; font-size: 13.5px; margin-bottom: 6px; }
+  .transfer-card .tmoves { display: flex; flex-direction: column; gap: 4px; }
+  .tmove { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tmove .tout { color: #f87171; }
+  .tmove .tin { color: var(--green); }
+  .tmove .tarrow { color: var(--muted); font-weight: 500; }
+
   .derby-box {
     background: linear-gradient(135deg, rgba(245,158,11,0.14), rgba(236,72,153,0.14));
     border: 1.5px solid rgba(245,158,11,0.3);
@@ -856,6 +870,25 @@
       `;
     }
 
+    let transfersHtml = '';
+    if ((s.transfers || []).length > 0) {
+      transfersHtml += `<div class="section-title">🔄 Transfers This Gameweek</div>`;
+      transfersHtml += s.transfers.map(t => `
+        <div class="transfer-card">
+          <div class="twho">${escapeHtml(t.team_name)}</div>
+          <div class="tmoves">
+            ${t.moves.map(m => `
+              <div class="tmove">
+                <span class="tout">${escapeHtml(m.player_out)}</span>
+                <span class="tarrow">→</span>
+                <span class="tin">${escapeHtml(m.player_in)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('');
+    }
+
     container.innerHTML = `
       <div class="recap-hero">
         <div class="rlbl">Gameweek Recap</div>
@@ -865,6 +898,7 @@
       <div class="recap-top3">${top3Html}</div>
       ${statGridHtml}
       ${captainsHtml}
+      ${transfersHtml}
       ${derbyHtml}
     `;
   }
