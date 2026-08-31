@@ -26,7 +26,7 @@ A live-updating leaderboard for your FPL classic league, deployed free on Vercel
 
 ```bash
 npm install
-npm run dev
+vercel dev
 ```
 
 This uses `vercel dev`, which serves `index.html` and runs `api/data.ts` locally, matching
