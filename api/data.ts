@@ -6,7 +6,7 @@
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const LEAGUE_ID = 2908;
+const LEAGUE_ID = 644333;
 const STANDINGS_URL = `https://fantasy.premierleague.com/api/leagues-classic/${LEAGUE_ID}/standings/`;
 const BOOTSTRAP_URL = "https://fantasy.premierleague.com/api/bootstrap-static/";
 const liveUrl = (gw: number) => `https://fantasy.premierleague.com/api/event/${gw}/live/`;

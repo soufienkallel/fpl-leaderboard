@@ -1,4 +1,4 @@
-# FPL League Leaderboard 
+# FPL League Leaderboard
 
 A live-updating leaderboard for your FPL classic league, deployed free on Vercel.
 
