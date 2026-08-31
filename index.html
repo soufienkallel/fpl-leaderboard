@@ -393,12 +393,29 @@
     margin-bottom: 8px;
     border: 1.5px solid var(--card-border);
   }
-  .transfer-card .twho { font-weight: 800; font-size: 13.5px; margin-bottom: 6px; }
-  .transfer-card .tmoves { display: flex; flex-direction: column; gap: 4px; }
-  .tmove { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .transfer-card .twho { font-weight: 800; font-size: 13.5px; margin-bottom: 8px; }
+  .transfer-card .tmoves { display: flex; flex-direction: column; gap: 10px; }
+  .tmove + .tmove { padding-top: 10px; border-top: 1px solid var(--card-border); }
+  .tmove .tplayers { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
   .tmove .tout { color: #f87171; }
   .tmove .tin { color: var(--green); }
   .tmove .tarrow { color: var(--muted); font-weight: 500; }
+  .tmove .tpts { color: var(--muted); font-weight: 700; font-size: 10.5px; }
+  .tmove .tmeta { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+  .tdiff { font-weight: 900; font-size: 13px; }
+  .tdiff.good { color: var(--green); }
+  .tdiff.bad { color: #f87171; }
+  .tdiff.even { color: var(--muted); }
+  .tverdict {
+    font-size: 10.5px;
+    font-weight: 800;
+    padding: 3px 9px;
+    border-radius: 999px;
+  }
+  .tverdict.good { background: rgba(16,185,129,0.14); color: var(--green); border: 1px solid rgba(16,185,129,0.35); }
+  .tverdict.bad { background: rgba(248,113,113,0.14); color: #f87171; border: 1px solid rgba(248,113,113,0.35); }
+  .tverdict.even { background: rgba(139,144,163,0.14); color: var(--muted); border: 1px solid rgba(139,144,163,0.3); }
+  .tverdict.pending { background: rgba(59,130,246,0.14); color: var(--blue); border: 1px solid rgba(59,130,246,0.35); }
 
   .derby-box {
     background: linear-gradient(135deg, rgba(245,158,11,0.14), rgba(236,72,153,0.14));
@@ -549,6 +566,7 @@
     <div class="menu-dropdown" id="menu-dropdown">
       <div class="menu-item active" data-view="table">Table</div>
       <div class="menu-item" data-view="recap">Gameweek Recap</div>
+      <div class="menu-item" data-view="transfers">Transfers</div>
     </div>
 
     <header>
@@ -589,6 +607,11 @@
       <div class="msg" id="recap-msg" style="display:none">No recap available for this gameweek yet.</div>
     </div>
 
+    <div id="view-transfers" style="display:none">
+      <div id="transfers-content"></div>
+      <div class="msg" id="transfers-msg" style="display:none">No transfers made yet.</div>
+    </div>
+
     <footer>Auto-refreshing · Source: fantasy.premierleague.com</footer>
   </div>
 
@@ -623,6 +646,8 @@
   const menuDropdown = document.getElementById('menu-dropdown');
   const viewTable = document.getElementById('view-table');
   const viewRecap = document.getElementById('view-recap');
+  const viewTransfers = document.getElementById('view-transfers');
+  let activeView = 'table';
 
   menuBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -634,11 +659,13 @@
     item.addEventListener('click', () => {
       document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
       item.classList.add('active');
-      const view = item.dataset.view;
-      viewTable.style.display = view === 'table' ? 'block' : 'none';
-      viewRecap.style.display = view === 'recap' ? 'block' : 'none';
+      activeView = item.dataset.view;
+      viewTable.style.display = activeView === 'table' ? 'block' : 'none';
+      viewRecap.style.display = activeView === 'recap' ? 'block' : 'none';
+      viewTransfers.style.display = activeView === 'transfers' ? 'block' : 'none';
       menuDropdown.classList.remove('open');
-      if (view === 'recap' && latestData) renderRecap(latestData);
+      if (activeView === 'recap' && latestData) renderRecap(latestData);
+      if (activeView === 'transfers' && latestData) renderTransfers(latestData);
     });
   });
 
@@ -871,44 +898,6 @@
       `;
     }
 
-    let transfersHtml = '';
-    if ((s.transfers || []).length > 0) {
-      transfersHtml += `<div class="section-title">🔄 Transfers This Gameweek</div>`;
-      transfersHtml += s.transfers.map(t => `
-        <div class="transfer-card">
-          <div class="twho">${escapeHtml(t.team_name)}</div>
-          <div class="tmoves">
-            ${t.moves.map(m => `
-              <div class="tmove">
-                <span class="tout">${escapeHtml(m.player_out)}</span>
-                <span class="tarrow">→</span>
-                <span class="tin">${escapeHtml(m.player_in)}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
-    }
-
-    let upcomingTransfersHtml = '';
-    if ((s.upcoming_transfers || []).length > 0) {
-      upcomingTransfersHtml += `<div class="section-title upcoming">🔜 Transfers Ahead of GW${s.next_gw}</div>`;
-      upcomingTransfersHtml += s.upcoming_transfers.map(t => `
-        <div class="transfer-card">
-          <div class="twho">${escapeHtml(t.team_name)}</div>
-          <div class="tmoves">
-            ${t.moves.map(m => `
-              <div class="tmove">
-                <span class="tout">${escapeHtml(m.player_out)}</span>
-                <span class="tarrow">→</span>
-                <span class="tin">${escapeHtml(m.player_in)}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      `).join('');
-    }
-
     container.innerHTML = `
       <div class="recap-hero">
         <div class="rlbl">Gameweek Recap</div>
@@ -918,10 +907,70 @@
       <div class="recap-top3">${top3Html}</div>
       ${statGridHtml}
       ${captainsHtml}
-      ${transfersHtml}
-      ${upcomingTransfersHtml}
       ${derbyHtml}
     `;
+  }
+
+  function renderTransfers(data) {
+    const s = data.gw_summary;
+    const container = document.getElementById('transfers-content');
+    const msg = document.getElementById('transfers-msg');
+
+    const hasThisGw = s && (s.transfers || []).length > 0;
+    const hasUpcoming = s && (s.upcoming_transfers || []).length > 0;
+
+    if (!hasThisGw && !hasUpcoming) {
+      container.innerHTML = '';
+      msg.style.display = 'block';
+      return;
+    }
+    msg.style.display = 'none';
+
+    const verdictBadge = (m) => {
+      if (m.worth_it === true) return `<span class="tverdict good">✅ Worth it</span>`;
+      if (m.worth_it === false) return `<span class="tverdict bad">❌ Not worth it</span>`;
+      if (m.diff === 0) return `<span class="tverdict even">➖ Even</span>`;
+      return '';
+    };
+
+    const moveRow = (m, scored) => `
+      <div class="tmove">
+        <div class="tplayers">
+          <span class="tout">${escapeHtml(m.player_out)}${scored ? ` <span class="tpts">${m.points_out} pts</span>` : ''}</span>
+          <span class="tarrow">→</span>
+          <span class="tin">${escapeHtml(m.player_in)}${scored ? ` <span class="tpts">${m.points_in} pts</span>` : ''}</span>
+        </div>
+        ${scored ? `
+          <div class="tmeta">
+            <span class="tdiff ${m.diff > 0 ? 'good' : m.diff < 0 ? 'bad' : 'even'}">${m.diff > 0 ? '+' : ''}${m.diff}</span>
+            ${verdictBadge(m)}
+          </div>
+        ` : `<div class="tmeta"><span class="tverdict pending">⏳ Pending</span></div>`}
+      </div>
+    `;
+
+    let html = '';
+    if (hasThisGw) {
+      html += `<div class="section-title">🔄 Transfers This Gameweek</div>`;
+      html += s.transfers.map(t => `
+        <div class="transfer-card">
+          <div class="twho">${escapeHtml(t.team_name)}</div>
+          <div class="tmoves">${t.moves.map(m => moveRow(m, true)).join('')}</div>
+        </div>
+      `).join('');
+    }
+
+    if (hasUpcoming) {
+      html += `<div class="section-title upcoming">🔜 Transfers Ahead of GW${s.next_gw}</div>`;
+      html += s.upcoming_transfers.map(t => `
+        <div class="transfer-card">
+          <div class="twho">${escapeHtml(t.team_name)}</div>
+          <div class="tmoves">${t.moves.map(m => moveRow(m, false)).join('')}</div>
+        </div>
+      `).join('');
+    }
+
+    container.innerHTML = html;
   }
 
   async function loadData() {
@@ -937,9 +986,8 @@
 
       renderTable(data);
 
-      if (viewRecap.style.display !== 'none') {
-        renderRecap(data);
-      }
+      if (activeView === 'recap') renderRecap(data);
+      if (activeView === 'transfers') renderTransfers(data);
     } catch (e) {
       document.getElementById('loading-msg').textContent =
         'Could not load data — try refreshing in a moment.';

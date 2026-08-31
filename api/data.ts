@@ -112,6 +112,10 @@ interface BenchTotal {
 interface TransferMove {
   player_in: string;
   player_out: string;
+  points_in: number | null;
+  points_out: number | null;
+  diff: number | null;
+  worth_it: boolean | null;
 }
 
 interface ManagerTransfers {
@@ -274,11 +278,21 @@ async function buildGwSummary(
 
   // Transfers made this gameweek, and any already banked for the next deadline:
   // one API call per manager (run in parallel), split by event afterwards.
-  const toMoves = (rows: TransferRaw[]): TransferMove[] =>
-    rows.map((t) => ({
-      player_in: playerNames.get(t.element_in) ?? "Unknown",
-      player_out: playerNames.get(t.element_out) ?? "Unknown",
-    }));
+  // Only "this gameweek" moves get scored — the next gameweek hasn't been played yet.
+  const toMoves = (rows: TransferRaw[], score: boolean): TransferMove[] =>
+    rows.map((t) => {
+      const pointsIn = score ? livePoints.get(t.element_in) ?? 0 : null;
+      const pointsOut = score ? livePoints.get(t.element_out) ?? 0 : null;
+      const diff = pointsIn !== null && pointsOut !== null ? pointsIn - pointsOut : null;
+      return {
+        player_in: playerNames.get(t.element_in) ?? "Unknown",
+        player_out: playerNames.get(t.element_out) ?? "Unknown",
+        points_in: pointsIn,
+        points_out: pointsOut,
+        diff,
+        worth_it: diff === null ? null : diff > 0 ? true : diff < 0 ? false : null,
+      };
+    });
 
   const transfersResults = await Promise.all(
     scored.map(async (p) => {
@@ -301,13 +315,13 @@ async function buildGwSummary(
 
     const thisGw = allTransfers.filter((t) => t.event === gw);
     if (thisGw.length > 0) {
-      transfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw) });
+      transfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw, true) });
     }
 
     if (nextGw) {
       const forNextGw = allTransfers.filter((t) => t.event === nextGw);
       if (forNextGw.length > 0) {
-        upcomingTransfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(forNextGw) });
+        upcomingTransfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(forNextGw, false) });
       }
     }
   }
