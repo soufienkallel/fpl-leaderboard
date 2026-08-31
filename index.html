@@ -406,6 +406,126 @@
     border-radius: 999px;
   }
   .derby-diff { color: var(--muted); font-size: 11px; font-weight: 700; margin-top: 8px; }
+
+  .row { cursor: pointer; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(4,5,10,0.72);
+    backdrop-filter: blur(2px);
+    z-index: 100;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 14px;
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-card {
+    background: var(--card);
+    border: 1.5px solid var(--card-border);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    padding: 20px;
+    position: relative;
+  }
+  .modal-close {
+    position: absolute;
+    top: 14px; right: 14px;
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    border: 1.5px solid var(--card-border);
+    color: var(--muted);
+    font-size: 16px;
+    line-height: 1;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .modal-close:hover { color: var(--ink); }
+  .modal-header { text-align: center; margin-bottom: 16px; padding-right: 30px; }
+  .modal-header .mteam { font-size: 20px; font-weight: 900; color: var(--ink); }
+  .modal-header .mmanager { font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: 2px; }
+  .modal-header .mlink {
+    display: inline-block;
+    margin-top: 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--pink);
+    text-decoration: none;
+    border: 1px solid rgba(236,72,153,0.4);
+    background: rgba(236,72,153,0.1);
+    padding: 5px 12px;
+    border-radius: 999px;
+  }
+
+  .modal-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .modal-stat-grid .sval { font-size: 17px; font-weight: 900; color: var(--ink); }
+  .modal-stat-grid .slbl { font-size: 10px; color: var(--muted); font-weight: 700; margin-top: 3px; text-transform: uppercase; letter-spacing: 0.03em; }
+
+  .modal-section-title {
+    font-weight: 800;
+    font-size: 11px;
+    color: var(--purple);
+    margin: 4px 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .chart-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 80px;
+    margin-bottom: 6px;
+  }
+  .chart-bar {
+    flex: 1;
+    min-width: 3px;
+    background: rgba(124,58,237,0.5);
+    border-radius: 3px 3px 0 0;
+  }
+  .chart-bar.current { background: linear-gradient(180deg, var(--pink), var(--purple)); }
+  .chart-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9.5px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 20px;
+  }
+
+  .past-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
+  .past-table th {
+    font-size: 10px; color: var(--muted); font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.03em;
+    text-align: left; padding: 6px 4px; border-bottom: 1px solid var(--card-border);
+  }
+  .past-table th:not(:first-child), .past-table td:not(:first-child) { text-align: right; }
+  .past-table td {
+    font-size: 12.5px; font-weight: 700; color: var(--ink);
+    padding: 7px 4px; border-bottom: 1px solid var(--card-border);
+  }
+
+  .chip-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+  .chip-pill {
+    background: rgba(59,130,246,0.14);
+    border: 1px solid rgba(59,130,246,0.35);
+    color: #7fb0ff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 11px;
+    border-radius: 999px;
+  }
+
+  .modal-msg { text-align: center; color: var(--muted); font-size: 12.5px; font-weight: 700; padding: 20px 0; }
 </style>
 </head>
 <body>
@@ -455,6 +575,13 @@
     </div>
 
     <footer>Auto-refreshing · Source: fantasy.premierleague.com</footer>
+  </div>
+
+  <div class="modal-overlay" id="profile-overlay">
+    <div class="modal-card">
+      <div class="modal-close" id="profile-close">&times;</div>
+      <div id="profile-content"></div>
+    </div>
   </div>
 
 <script>
@@ -507,28 +634,17 @@
       return;
     }
 
-    const rows = data.players.map(p => {
-      const gw = data.current_gw || 1;
-      const fplUrl = p.team_id
-        ? `goto.html?u=${encodeURIComponent(`https://fantasy.premierleague.com/entry/${p.team_id}/event/${gw}`)}`
-        : null;
-      const teamBlock = `
-          <div class="team-name">${escapeHtml(p.team_name)}</div>
-          <div class="manager-name">${escapeHtml(p.manager_name)}</div>
-      `;
-      return `
-      <div class="row">
+    const rows = data.players.map(p => `
+      <div class="row" data-team-id="${p.team_id ?? ''}" data-team-name="${escapeHtml(p.team_name)}" data-manager-name="${escapeHtml(p.manager_name)}">
         <div><span class="rank-badge ${p.rank <= 3 ? 'top' : 'rest'}">${p.rank}</span></div>
         <div class="team-cell">
-          ${fplUrl
-            ? `<a class="team-link" href="${fplUrl}" target="_blank" rel="noopener noreferrer">${teamBlock}</a>`
-            : teamBlock}
+          <div class="team-name">${escapeHtml(p.team_name)}</div>
+          <div class="manager-name">${escapeHtml(p.manager_name)}</div>
         </div>
         <div class="stat gw">${p.gw_points ?? '–'}</div>
         <div class="stat">${p.total_points ?? '–'}</div>
       </div>
-    `;
-    }).join('');
+    `).join('');
 
     document.getElementById('rows').innerHTML = rows;
     document.getElementById('board-wrap').style.display = 'block';
@@ -539,6 +655,123 @@
       document.getElementById('top-gw-name').textContent = topGw.team_name;
       document.getElementById('top-gw-points').textContent = `${topGw.gw_points} points this gameweek`;
     }
+  }
+
+  // --- Manager profile modal ---
+  const profileOverlay = document.getElementById('profile-overlay');
+  const profileContent = document.getElementById('profile-content');
+  const profileCache = new Map();
+
+  const CHIP_LABELS = {
+    wildcard: 'Wildcard',
+    bboost: 'Bench Boost',
+    '3xc': 'Triple Captain',
+    freehit: 'Free Hit',
+    manager: 'Assistant Manager',
+  };
+
+  function closeProfile() {
+    profileOverlay.classList.remove('open');
+  }
+
+  document.getElementById('profile-close').addEventListener('click', closeProfile);
+  profileOverlay.addEventListener('click', (e) => {
+    if (e.target === profileOverlay) closeProfile();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeProfile();
+  });
+
+  document.getElementById('rows').addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (!row || !row.dataset.teamId) return;
+    openProfile(row.dataset.teamId, row.dataset.teamName, row.dataset.managerName);
+  });
+
+  async function openProfile(teamId, teamName, managerName) {
+    profileOverlay.classList.add('open');
+    profileContent.innerHTML = `
+      <div class="modal-header">
+        <div class="mteam">${teamName}</div>
+        <div class="mmanager">${managerName}</div>
+      </div>
+      <div class="modal-msg">Loading history…</div>
+    `;
+
+    try {
+      const data = profileCache.get(teamId) || await fetch(`/api/manager?id=${teamId}`).then(r => {
+        if (!r.ok) throw new Error('failed');
+        return r.json();
+      });
+      profileCache.set(teamId, data);
+      renderProfile(data, teamId);
+    } catch (e) {
+      profileContent.innerHTML = `
+        <div class="modal-header">
+          <div class="mteam">${teamName}</div>
+          <div class="mmanager">${managerName}</div>
+        </div>
+        <div class="modal-msg">Could not load history — try again in a moment.</div>
+      `;
+    }
+  }
+
+  function renderProfile(data, teamId) {
+    const gw = latestData?.current_gw || 1;
+    const fplUrl = `goto.html?u=${encodeURIComponent(`https://fantasy.premierleague.com/entry/${teamId}/event/${gw}`)}`;
+
+    const history = data.season_history || [];
+    const maxPts = Math.max(1, ...history.map(h => h.points));
+    const barsHtml = history.map(h => `
+      <div class="chart-bar ${h.event === gw ? 'current' : ''}" style="height:${Math.max(4, Math.round((h.points / maxPts) * 80))}px" title="GW${h.event}: ${h.points} pts (bench: ${h.points_on_bench})"></div>
+    `).join('');
+    const labelsHtml = history.length
+      ? `<span>GW${history[0].event}</span><span>GW${history[history.length - 1].event}</span>`
+      : '';
+
+    const pastHtml = (data.past_seasons || []).length
+      ? `
+        <div class="modal-section-title">Past Seasons</div>
+        <table class="past-table">
+          <thead><tr><th>Season</th><th>Points</th><th>Rank</th></tr></thead>
+          <tbody>
+            ${data.past_seasons.map(s => `
+              <tr>
+                <td>${escapeHtml(s.season_name)}</td>
+                <td>${s.total_points.toLocaleString()}</td>
+                <td>${s.rank ? s.rank.toLocaleString() : '–'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `
+      : '';
+
+    const chipsHtml = (data.chips || []).length
+      ? `
+        <div class="modal-section-title">Chips Used</div>
+        <div class="chip-list">
+          ${data.chips.map(c => `<span class="chip-pill">${CHIP_LABELS[c.name] || c.name} · GW${c.event}</span>`).join('')}
+        </div>
+      `
+      : '';
+
+    profileContent.innerHTML = `
+      <div class="modal-header">
+        <div class="mteam">${escapeHtml(data.team_name)}</div>
+        <div class="mmanager">${escapeHtml(data.manager_name)}</div>
+        <a class="mlink" href="${fplUrl}" target="_blank" rel="noopener noreferrer">Open in FPL ↗</a>
+      </div>
+      <div class="modal-stat-grid">
+        <div class="stat-card"><div class="sval">${data.overall_points?.toLocaleString() ?? '–'}</div><div class="slbl">Overall Points</div></div>
+        <div class="stat-card"><div class="sval">${data.overall_rank?.toLocaleString() ?? '–'}</div><div class="slbl">Overall Rank</div></div>
+      </div>
+      <div class="modal-section-title">Season So Far</div>
+      <div class="chart-wrap">${barsHtml || '<div class="modal-msg">No gameweek data yet.</div>'}</div>
+      <div class="chart-labels">${labelsHtml}</div>
+      ${pastHtml}
+      ${chipsHtml}
+    `;
   }
 
   function renderRecap(data) {
