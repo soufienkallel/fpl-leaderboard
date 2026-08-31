@@ -209,6 +209,11 @@
   }
   .rank-badge.top { background: linear-gradient(135deg, var(--pink), var(--purple)); }
   .rank-badge.rest { background: rgba(255,255,255,0.06); color: var(--ink); border: 1.5px solid var(--card-border); }
+  .rank-badge.last {
+    background: linear-gradient(135deg, #7f1d1d, #431407);
+    border: 1.5px solid rgba(239,68,68,0.5);
+    font-size: 16px;
+  }
 
   .team-cell { text-align: center; padding: 0 6px; overflow: hidden; }
   .team-link {
@@ -308,6 +313,24 @@
     padding: 6px 14px;
     border-radius: 999px;
   }
+
+  .clown-hero {
+    background: linear-gradient(145deg, #7f1d1d, #431407);
+    border: 1.5px solid rgba(239,68,68,0.4);
+    border-radius: 16px;
+    padding: 18px 18px;
+    margin-bottom: 14px;
+    text-align: center;
+  }
+  .clown-hero .clbl {
+    color: #fca5a5;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .clown-hero .cname { color: #fff; font-size: 21px; font-weight: 900; margin: 4px 0 8px; }
+  .clown-hero .ccaption { color: #fecaca; font-size: 12.5px; font-weight: 600; line-height: 1.55; }
 
   .recap-top3 { margin-bottom: 14px; }
   .recap-row {
@@ -707,9 +730,13 @@
       return;
     }
 
-    const rows = data.players.map(p => `
+    const maxRank = Math.max(...data.players.map(p => p.rank ?? 0));
+
+    const rows = data.players.map(p => {
+      const badgeClass = p.rank <= 3 ? 'top' : (p.rank === maxRank ? 'last' : 'rest');
+      return `
       <div class="row" data-team-id="${p.team_id ?? ''}" data-team-name="${escapeHtml(p.team_name)}" data-manager-name="${escapeHtml(p.manager_name)}">
-        <div><span class="rank-badge ${p.rank <= 3 ? 'top' : 'rest'}">${p.rank}</span></div>
+        <div><span class="rank-badge ${badgeClass}" ${badgeClass === 'last' ? 'title="Bottom of the table"' : ''}>${badgeClass === 'last' ? '💀' : p.rank}</span></div>
         <div class="team-cell">
           <div class="team-name">${escapeHtml(p.team_name)}</div>
           <div class="manager-name">${escapeHtml(p.manager_name)}</div>
@@ -717,7 +744,8 @@
         <div class="stat gw">${p.gw_points ?? '–'}</div>
         <div class="stat">${p.total_points ?? '–'}</div>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
     document.getElementById('rows').innerHTML = rows;
     document.getElementById('board-wrap').style.display = 'block';
@@ -914,6 +942,47 @@
       }
     }
 
+    let clownHtml = '';
+    if (s.clown_of_the_gameweek) {
+      const c = s.clown_of_the_gameweek;
+      clownHtml = `
+        <div class="clown-hero">
+          <div class="clbl">🤡 Clown of the Gameweek</div>
+          <div class="cname">${escapeHtml(c.team_name)}</div>
+          <div class="ccaption">${escapeHtml(c.caption)}</div>
+        </div>
+      `;
+    }
+
+    let wallHtml = '';
+    if (s.wall_of_shame && (s.wall_of_shame.bench_warmer || s.wall_of_shame.worst_gameweek_ever)) {
+      wallHtml += `<div class="section-title">🏆 Wall of Shame (Season)</div>`;
+      if (s.wall_of_shame.bench_warmer) {
+        const b = s.wall_of_shame.bench_warmer;
+        wallHtml += `
+          <div class="cap-card">
+            <div class="cval">${b.total_bench_points}</div>
+            <div class="cinfo">
+              <div class="cwho">${escapeHtml(b.team_name)}</div>
+              <div class="cwhat">🪑 Serial Bench Warmer — most points wasted on the bench all season</div>
+            </div>
+          </div>
+        `;
+      }
+      if (s.wall_of_shame.worst_gameweek_ever) {
+        const w = s.wall_of_shame.worst_gameweek_ever;
+        wallHtml += `
+          <div class="cap-card">
+            <div class="cval">${w.points}</div>
+            <div class="cinfo">
+              <div class="cwho">${escapeHtml(w.team_name)}</div>
+              <div class="cwhat">📉 Worst Gameweek Ever — GW${w.event}, the low point of the season</div>
+            </div>
+          </div>
+        `;
+      }
+    }
+
     let derbyHtml = '';
     if (s.derby) {
       derbyHtml = `
@@ -935,9 +1004,11 @@
         <div class="rtitle">Gameweek ${s.gw}</div>
         <div class="rtag">🔥 ${escapeHtml(s.top_scorers?.[0]?.team_name || '')} — ${s.highest_score} pts</div>
       </div>
+      ${clownHtml}
       <div class="recap-top3">${top3Html}</div>
       ${statGridHtml}
       ${captainsHtml}
+      ${wallHtml}
       ${derbyHtml}
     `;
   }

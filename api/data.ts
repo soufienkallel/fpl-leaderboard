@@ -13,6 +13,7 @@ const liveUrl = (gw: number) => `https://fantasy.premierleague.com/api/event/${g
 const picksUrl = (entryId: number, gw: number) =>
   `https://fantasy.premierleague.com/api/entry/${entryId}/event/${gw}/picks/`;
 const transfersUrl = (entryId: number) => `https://fantasy.premierleague.com/api/entry/${entryId}/transfers/`;
+const historyUrl = (entryId: number) => `https://fantasy.premierleague.com/api/entry/${entryId}/history/`;
 
 const HEADERS = {
   "User-Agent":
@@ -88,6 +89,11 @@ interface TransferRaw {
   element_out: number;
   event: number;
 }
+interface HistoryEvent {
+  event: number;
+  points: number;
+  points_on_bench: number;
+}
 
 interface Player {
   rank: number | null;
@@ -114,6 +120,7 @@ interface DerbyData {
 }
 
 interface CaptainInfo {
+  team_id: number | null;
   team_name: string | null;
   manager_name: string | null;
   captain_id: number;
@@ -122,6 +129,7 @@ interface CaptainInfo {
 }
 
 interface BenchTotal {
+  team_id: number | null;
   team_name: string | null;
   manager_name: string | null;
   bench_points: number;
@@ -137,9 +145,31 @@ interface TransferMove {
 }
 
 interface ManagerTransfers {
+  team_id: number | null;
   team_name: string | null;
   manager_name: string | null;
   moves: TransferMove[];
+}
+
+interface ClownAward {
+  team_name: string | null;
+  manager_name: string | null;
+  gw_points: number | null;
+  captain_name: string | null;
+  captain_points: number | null;
+  bench_points: number | null;
+  worst_move: { player_in: string; player_out: string; diff: number } | null;
+  caption: string;
+}
+
+interface WallOfShame {
+  bench_warmer: { team_name: string | null; manager_name: string | null; total_bench_points: number } | null;
+  worst_gameweek_ever: {
+    team_name: string | null;
+    manager_name: string | null;
+    event: number;
+    points: number;
+  } | null;
 }
 
 interface CopycatMatch {
@@ -167,6 +197,8 @@ interface GwSummary {
   next_gw: number | null;
   upcoming_transfers: ManagerTransfers[];
   copycats: CopycatMatch[];
+  clown_of_the_gameweek: ClownAward | null;
+  wall_of_shame: WallOfShame | null;
 }
 
 function fetchCurrentGw(bootstrap: Bootstrap): number | null {
@@ -278,6 +310,7 @@ async function buildGwSummary(
       const capPts = livePoints.get(capId) ?? 0;
       captainCounts.set(capId, (captainCounts.get(capId) ?? 0) + 1);
       managerCaptainInfo.push({
+        team_id: p.team_id,
         team_name: p.team_name,
         manager_name: p.manager_name,
         captain_id: capId,
@@ -288,7 +321,7 @@ async function buildGwSummary(
 
     const benchPicks = picks.filter((pk) => (pk.position ?? 0) > 11);
     const benchPts = benchPicks.reduce((sum, pk) => sum + (livePoints.get(pk.element) ?? 0), 0);
-    benchTotals.push({ team_name: p.team_name, manager_name: p.manager_name, bench_points: benchPts });
+    benchTotals.push({ team_id: p.team_id, team_name: p.team_name, manager_name: p.manager_name, bench_points: benchPts });
 
     if (p.team_id) {
       squadsByTeam.set(p.team_id, {
@@ -352,7 +385,7 @@ async function buildGwSummary(
 
     const thisGw = allTransfers.filter((t) => t.event === gw);
     if (thisGw.length > 0) {
-      transfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw, true) });
+      transfers.push({ team_id: p.team_id, team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(thisGw, true) });
     }
     if (p.team_id) {
       transfersByTeamThisGw.set(p.team_id, thisGw);
@@ -361,7 +394,7 @@ async function buildGwSummary(
     if (nextGw) {
       const forNextGw = allTransfers.filter((t) => t.event === nextGw);
       if (forNextGw.length > 0) {
-        upcomingTransfers.push({ team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(forNextGw, false) });
+        upcomingTransfers.push({ team_id: p.team_id, team_name: p.team_name, manager_name: p.manager_name, moves: toMoves(forNextGw, false) });
       }
     }
   }
@@ -412,6 +445,79 @@ async function buildGwSummary(
   }
   copycats.sort((x, y) => y.shared_count - x.shared_count);
 
+  // Clown of the Gameweek: the lowest scorer, with their own captain pick,
+  // bench points, and worst transfer this gameweek folded into one savage caption.
+  const clownPlayer = byGw[byGw.length - 1];
+  const clownCaptain = managerCaptainInfo.find((c) => c.team_id === clownPlayer.team_id) ?? null;
+  const clownBench = benchTotals.find((b) => b.team_id === clownPlayer.team_id) ?? null;
+  const clownTransfers = transfers.find((t) => t.team_id === clownPlayer.team_id) ?? null;
+  const clownWorstMove = clownTransfers
+    ? clownTransfers.moves.reduce<TransferMove | null>(
+        (worst, m) => (m.diff !== null && (worst === null || m.diff < (worst.diff as number)) ? m : worst),
+        null
+      )
+    : null;
+
+  const captionParts: string[] = [`${clownPlayer.gw_points} points this gameweek — dead last in the league.`];
+  if (clownCaptain) {
+    captionParts.push(`Captained ${clownCaptain.captain_name} for just ${clownCaptain.captain_points} pts.`);
+  }
+  if (clownBench && clownBench.bench_points > 0) {
+    captionParts.push(`Left ${clownBench.bench_points} pts warming the bench.`);
+  }
+  if (clownWorstMove && clownWorstMove.diff !== null && clownWorstMove.diff < 0) {
+    captionParts.push(
+      `Transfer disaster: ${clownWorstMove.player_out} ➜ ${clownWorstMove.player_in} (${clownWorstMove.diff} pts).`
+    );
+  }
+
+  const clownOfTheGameweek: ClownAward = {
+    team_name: clownPlayer.team_name,
+    manager_name: clownPlayer.manager_name,
+    gw_points: clownPlayer.gw_points,
+    captain_name: clownCaptain?.captain_name ?? null,
+    captain_points: clownCaptain?.captain_points ?? null,
+    bench_points: clownBench?.bench_points ?? null,
+    worst_move:
+      clownWorstMove && clownWorstMove.diff !== null
+        ? { player_in: clownWorstMove.player_in, player_out: clownWorstMove.player_out, diff: clownWorstMove.diff }
+        : null,
+    caption: captionParts.join(" "),
+  };
+
+  // Wall of Shame: season-long cumulative stats, pulled from each manager's full
+  // gameweek history (one API call per manager, capped concurrency like the rest).
+  const historyResults = await mapLimit(scored, 6, async (p) => {
+    if (!p.team_id) return null;
+    try {
+      const history = await fetchJson<{ current: HistoryEvent[] }>(historyUrl(p.team_id));
+      return { player: p, current: history.current ?? [] };
+    } catch (e) {
+      console.error(`Could not fetch history for entry ${p.team_id}:`, e);
+      return null;
+    }
+  });
+
+  let benchWarmer: WallOfShame["bench_warmer"] = null;
+  let worstGwEver: WallOfShame["worst_gameweek_ever"] = null;
+  for (const result of historyResults) {
+    if (!result) continue;
+    const { player: p, current } = result;
+
+    const totalBench = current.reduce((sum, e) => sum + (e.points_on_bench ?? 0), 0);
+    if (!benchWarmer || totalBench > benchWarmer.total_bench_points) {
+      benchWarmer = { team_name: p.team_name, manager_name: p.manager_name, total_bench_points: totalBench };
+    }
+
+    for (const e of current) {
+      if (!worstGwEver || e.points < worstGwEver.points) {
+        worstGwEver = { team_name: p.team_name, manager_name: p.manager_name, event: e.event, points: e.points };
+      }
+    }
+  }
+
+  const wallOfShame: WallOfShame = { bench_warmer: benchWarmer, worst_gameweek_ever: worstGwEver };
+
   return {
     gw,
     top_scorers: topScorers,
@@ -426,6 +532,8 @@ async function buildGwSummary(
     next_gw: nextGw,
     upcoming_transfers: upcomingTransfers,
     copycats,
+    clown_of_the_gameweek: clownOfTheGameweek,
+    wall_of_shame: wallOfShame,
   };
 }
 
