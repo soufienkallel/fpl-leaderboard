@@ -1,4 +1,4 @@
-# FPL League Leaderboard (League 2908)
+# FPL League Leaderboard 
 
 A live-updating leaderboard for your FPL classic league, deployed free on Vercel.
 
@@ -12,13 +12,7 @@ A live-updating leaderboard for your FPL classic league, deployed free on Vercel
 - [`goto.html`](goto.html) — script-driven redirect helper so tapping a team opens the FPL web
   page instead of the app.
 
-## Why this differs from the original scraper.py version
 
-The original repo used GitHub Actions to run `scraper.py` every few minutes and commit a fresh
-`data.json`, served statically by GitHub Pages. Vercel serverless functions don't have a
-persistent filesystem to write that file to, so this version computes the same JSON on demand and
-relies on edge caching instead of a cron + commit cycle. Functionally the output shape is
-identical — `index.html` needed no changes beyond the fetch URL.
 
 ## Deploy to Vercel
 
